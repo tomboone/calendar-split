@@ -23,6 +23,7 @@ function App() {
     signIn,
     signOut,
     clearError,
+    handleTokenExpired,
   } = useAuth();
 
   const {
@@ -38,7 +39,7 @@ function App() {
     goToToday,
     toggleTentative,
     refresh,
-  } = useCalendar({ accessToken, isAuthenticated });
+  } = useCalendar({ accessToken, isAuthenticated, onTokenExpired: handleTokenExpired });
 
   // Show loading screen during initial auth check
   if (authLoading) {

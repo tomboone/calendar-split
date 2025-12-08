@@ -10,6 +10,7 @@ import {
   clearUrlHash,
   getStoredToken,
   signOut as authSignOut,
+  clearAuth,
 } from '../utils/auth';
 import { AuthState } from '../types/calendar';
 
@@ -55,7 +56,7 @@ export function useAuth() {
         return;
       }
 
-      // Check for existing valid token in session storage
+      // Check for existing token in localStorage
       const storedToken = getStoredToken();
       if (storedToken) {
         setAuthState({
@@ -93,10 +94,22 @@ export function useAuth() {
     setAuthState((prev) => ({ ...prev, error: undefined }));
   }, []);
 
+  const handleTokenExpired = useCallback(() => {
+    // Clear the expired token and reset auth state
+    clearAuth();
+    setAuthState({
+      isAuthenticated: false,
+      isLoading: false,
+      error: 'Session expired. Please sign in again.',
+      accessToken: undefined,
+    });
+  }, []);
+
   return {
     ...authState,
     signIn,
     signOut,
     clearError,
+    handleTokenExpired,
   };
 }

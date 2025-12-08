@@ -11,6 +11,7 @@ import config from '../config/calendar.config';
 interface UseCalendarProps {
   accessToken: string | undefined;
   isAuthenticated: boolean;
+  onTokenExpired?: () => void;
 }
 
 interface UseCalendarReturn {
@@ -31,6 +32,7 @@ interface UseCalendarReturn {
 export function useCalendar({
   accessToken,
   isAuthenticated,
+  onTokenExpired,
 }: UseCalendarProps): UseCalendarReturn {
   const [columns, setColumns] = useState<ColumnData[]>(() =>
     config.columns.map((col) => ({
@@ -104,10 +106,21 @@ export function useCalendar({
       });
 
       const results = await Promise.all(promises);
+
+      // Check if any result has an authentication error
+      const hasAuthError = results.some(
+        (r) => r.error?.includes('Authentication expired') || r.error?.includes('sign in again')
+      );
+
+      if (hasAuthError && onTokenExpired) {
+        onTokenExpired();
+        return;
+      }
+
       setColumns(results);
       setIsRefreshing(false);
     },
-    [accessToken, isAuthenticated, dateRange, columns]
+    [accessToken, isAuthenticated, dateRange, columns, onTokenExpired]
   );
 
   // Fetch data when auth or date range changes

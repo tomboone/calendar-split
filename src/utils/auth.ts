@@ -1,6 +1,11 @@
 /**
- * Google OAuth 2.0 authentication using redirect flow
- * This approach doesn't require popups or third-party cookies
+ * Google OAuth 2.0 authentication using implicit grant redirect flow
+ * This approach doesn't require popups or third-party cookies.
+ *
+ * Note: Implicit flow tokens cannot be refreshed silently. When they expire
+ * (typically after 1 hour), the user will need to sign in again.
+ * We store tokens in localStorage to persist across browser sessions,
+ * allowing the token to be reused until Google actually rejects it.
  */
 
 import config from '../config/calendar.config';
@@ -8,7 +13,7 @@ import config from '../config/calendar.config';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
 const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 
-// Session storage keys
+// Storage keys - using localStorage for persistence across sessions
 const TOKEN_KEY = 'calendar_split_token';
 const TOKEN_EXPIRY_KEY = 'calendar_split_token_expiry';
 const AUTH_STATE_KEY = 'calendar_split_auth_state';
@@ -26,7 +31,6 @@ function generateState(): string {
  * Get the redirect URI based on current location
  */
 function getRedirectUri(): string {
-  // Use origin + pathname without hash
   return window.location.origin + window.location.pathname;
 }
 
@@ -94,53 +98,61 @@ export function parseTokenFromUrl(): { token: string; expiresIn: number } | null
 }
 
 /**
- * Store the token in session storage
+ * Store the token in localStorage for persistence across sessions
  */
 export function storeToken(token: string, expiresIn: number): void {
   const expiryTime = Date.now() + (expiresIn * 1000);
-  sessionStorage.setItem(TOKEN_KEY, token);
-  sessionStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString());
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString());
 }
 
 /**
  * Clear the URL hash after processing
  */
 export function clearUrlHash(): void {
-  // Use replaceState to remove hash without triggering navigation
   window.history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
 /**
- * Get stored access token if valid
+ * Get stored access token
+ * Returns the token even if "expired" - let the API reject it if invalid.
+ * Google tokens sometimes remain valid slightly beyond their stated expiry.
  */
 export function getStoredToken(): string | null {
-  const token = sessionStorage.getItem(TOKEN_KEY);
-  const expiry = sessionStorage.getItem(TOKEN_EXPIRY_KEY);
+  return localStorage.getItem(TOKEN_KEY);
+}
 
-  if (!token || !expiry) {
-    return null;
+/**
+ * Check if token is expired based on stored expiry time
+ * Note: We still return the token even if expired - the API will reject if truly invalid
+ */
+export function isTokenExpired(): boolean {
+  const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY);
+  if (!expiry) {
+    return true;
   }
+  return Date.now() > parseInt(expiry);
+}
 
-  // Check if token is expired (with 5 minute buffer)
-  if (Date.now() > parseInt(expiry) - 300000) {
-    clearAuth();
-    return null;
-  }
-
-  return token;
+/**
+ * Get token expiry time
+ */
+export function getTokenExpiry(): number | null {
+  const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY);
+  return expiry ? parseInt(expiry) : null;
 }
 
 /**
  * Clear authentication data
  */
 export function clearAuth(): void {
-  sessionStorage.removeItem(TOKEN_KEY);
-  sessionStorage.removeItem(TOKEN_EXPIRY_KEY);
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_EXPIRY_KEY);
   sessionStorage.removeItem(AUTH_STATE_KEY);
 }
 
 /**
- * Sign out - clear tokens
+ * Sign out - clear tokens and reload
  */
 export function signOut(): void {
   clearAuth();
