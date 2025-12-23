@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "saturday"
+      time: "09:00"
+      timezone: "America/New_York"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      javascript:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
