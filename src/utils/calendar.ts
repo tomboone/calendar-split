@@ -156,7 +156,11 @@ export async function fetchColumnEvents(
         .filter((event): event is CalendarEvent => event !== null);
     } catch (error) {
       console.error(`Error fetching calendar ${calendar.id}:`, error);
-      // Return empty array for failed calendars to allow others to succeed
+      // Re-throw authentication errors so they can be handled at a higher level
+      if (error instanceof Error && error.message.includes('Authentication expired')) {
+        throw error;
+      }
+      // Return empty array for other failed calendars to allow others to succeed
       return [];
     }
   });
